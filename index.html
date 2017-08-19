@@ -1,0 +1,149 @@
+<html>
+<head>
+	<title>IO Chat</title>
+	<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+	<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script src="cookie.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+	<style type="text/css">
+		body {
+			margin-top: 30px;
+		}
+
+		#messageArea {
+			display: none;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div class="row" id="userFormArea">
+			<div class="col-md-12">
+				<form id="userForm">
+					<div class="form-group">
+						<label>Enter Username</label>
+						<input class="form-control" id="username">
+						<br />
+						<input type="submit" class="btn btn-primary" value="Login">
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="row" id="messageArea">
+			<div class="col-md-4">
+				<div class="well">
+					<h3>Online Users</h3>
+					<ul class="list-group" id="users"></ul>
+					<br />
+					<input type="button" class="btn" id="logout" value="Logout">
+				</div>
+			</div>
+			<div class="col-md-8">
+				<div class="chat" id="chat"></div>
+
+				<form id="messageForm">
+					<div class="form-group">
+						<label>Enter Message</label>
+						<textarea class="form-control" id="message"></textarea>
+						<br />
+						<input type="submit" class="btn btn-primary" value="Send Message">
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		$(function() {
+			var socket = io.connect();
+
+			var messages = [];
+			var messageFormArea = $('#messageArea');
+			var messageForm = $('#messageForm');
+			var message = $('#message');
+			var chat = $('#chat');
+			var userFormArea = $('#userFormArea');
+			var userForm = $('#userForm');
+			var users = $('#users');
+			var username = $('#username');
+
+			if($.cookie('iochat')) {
+				socket.emit('set username', $.cookie('iochat'));
+				userFormArea.hide();
+				messageFormArea.show();
+				displayMessages();
+			} else {
+				messageFormArea.hide();
+			}
+
+			messageForm.submit(function(e) {
+				e.preventDefault();
+				if(message.val()) {
+					socket.emit('send message', message.val());
+					message.val('');
+				} 
+			});
+
+			socket.on('new message', function(data) {
+				messages.push(data);
+
+				var tmpM = messages.reverse();
+				$.cookie('iochat-msg',JSON.stringify(messages.slice(0, 5)));
+
+				chat.append('<div class="well"><strong>'+data.user+'</strong>: '+data.msg+'</div>');
+			});
+
+			userForm.submit(function(e) {
+				if(username.val()) {
+					e.preventDefault();
+					$.cookie('iochat',username.val());
+					socket.emit('new user', username.val(), function(data) {
+						if(data) {
+							userFormArea.hide();
+							messageFormArea.show();
+						}
+					});
+					username.val('');
+				}
+			});
+
+			socket.on('get users', function(data) {
+				var html = '';
+
+				$(data).each(i => {
+					html += '<li class="list-group-item">'+data[i]+'</li>';
+				});
+				users.html(html);
+			});
+
+			$('#logout').click(() => {
+				socket.emit('logoff',$.cookie('iochat'));
+				$.cookie('iochat','');
+				$.cookie('iochat-msg','');
+				chat.html('');
+				messageFormArea.hide();
+				userFormArea.show();
+			});
+
+			function displayMessages() {
+				var html = '';
+				if($.cookie('iochat-msg')) {
+					var data = $.cookie('iochat-msg');
+					data = JSON.parse(data);
+					data.reverse();
+
+					if(data.length > 0) {
+						$(data).each(i => {
+							messages.push(data[i]);
+							html += '<div class="well"><strong>'+data[i].user+'</strong>: '+data[i].msg+'</div>';
+						});
+						chat.html(html);	
+					}
+				}
+			}
+		});
+	</script>
+</body>
+</html>

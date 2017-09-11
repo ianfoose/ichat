@@ -4,7 +4,8 @@ A simple socket based chat application
 
 ## Install
 
-run ```bash npm install ``` to install dependencies.
+run 
+```npm install ``` to install dependencies.
 
 ### Use
 

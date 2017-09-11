@@ -1,12 +1,31 @@
 var express = require('express');
-var app = express();
-var server = require('http').createServer(app);
-var io = require('socket.io').listen(server);
+var fs = require('fs');
 
 users = [];
 connections = [];
 
-server.listen(process.env.PORT || 3000);
+// for https
+var privateKey = fs.readFileSync('<path_to_key>','utf8');
+var certificate = fs.readFileSync('<path_to_crt>','utf8');
+var caCert = fs.readFileSync('<path_to_intermediate>','utf8');
+
+var app = express();
+var https = require('https');
+var server = https.createServer({
+	key: privateKey,
+	cert: certificate,
+	ca: caCert,
+	requestCert: false,
+	rejectUnauthorized: false
+},app);
+
+// if not using https
+//var server = require('http').createServer(app);
+
+server.listen(3000);
+
+var io = require('socket.io').listen(server);
+
 console.log('Server running...');
 
 app.use(express.static(__dirname));
@@ -34,7 +53,8 @@ io.sockets.on('connection', function(socket) {
 	// send message
 	socket.on('send message', function(data) {
 		if(data) {
-			console.log(data);
+			var d = new Date();	
+			fs.appendFile(__dirname+'/log.txt',socket.username+': '+data+' '+d.toString()+'\n');	
 			io.sockets.emit('new message', {msg:data, user: socket.username});
 		}
 	});

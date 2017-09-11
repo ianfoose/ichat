@@ -1,8 +1,8 @@
 <html>
 <head>
-	<title>IO Chat</title>
+	<title>Chat</title>
 	<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-	<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script src="https://code.jquery.com/jquery-latest.min.js"></script>
 	<script src="cookie.js"></script>
 	<script src="/socket.io/socket.io.js"></script>
 	<style type="text/css">
@@ -25,7 +25,7 @@
 						<label>Enter Username</label>
 						<input class="form-control" id="username">
 						<br />
-						<input type="submit" class="btn btn-primary" value="Login">
+						<input type="submit" class="btn btn-primary" disabled="true" id="login" value="Login">
 					</div>
 				</form>
 			</div>
@@ -40,15 +40,15 @@
 					<input type="button" class="btn" id="logout" value="Logout">
 				</div>
 			</div>
-			<div class="col-md-8">
-				<div class="chat" id="chat"></div>
+			<div class="col-sm-12 col-md-8">
+				<div class="chat" style="height: 69%; overflow-y: auto;" id="chat"></div>
 
 				<form id="messageForm">
 					<div class="form-group">
 						<label>Enter Message</label>
 						<textarea class="form-control" id="message"></textarea>
 						<br />
-						<input type="submit" class="btn btn-primary" value="Send Message">
+						<input type="submit" class="btn btn-primary" id="sendMsg" disabled="true"  value="Send Message">
 					</div>
 				</form>
 			</div>
@@ -57,7 +57,8 @@
 
 	<script type="text/javascript">
 		$(function() {
-			var socket = io.connect();
+			// set connection
+			var socket = io.connect();					
 
 			var messages = [];
 			var messageFormArea = $('#messageArea');
@@ -68,6 +69,17 @@
 			var userForm = $('#userForm');
 			var users = $('#users');
 			var username = $('#username');
+			var expDate = new Date();
+
+			expDate.setTime(expDate.getTime() + (15 * 60 * 1000));
+
+			$('#username').keyup(() => {
+				if($.trim($('#username').val()).length > 0) {
+					$('#login').attr('disabled',false);
+				} else {
+					$('#login').attr('disabled',true);
+				}
+			});
 
 			if($.cookie('iochat')) {
 				socket.emit('set username', $.cookie('iochat'));
@@ -78,28 +90,37 @@
 				messageFormArea.hide();
 			}
 
+			$('#message').keyup(() => {
+				if($.trim($('#message').val()).length > 0) {
+					$('#sendMsg').attr('disabled',false);
+				} else {
+					$('#sendMsg').attr('disabled',true);
+				}
+			});
+		
 			messageForm.submit(function(e) {
 				e.preventDefault();
-				if(message.val()) {
-					socket.emit('send message', message.val());
-					message.val('');
-				} 
+				
+				$('#sendMsg').attr('disabled',true);
+				socket.emit('send message', $.trim(message.val()));
+				message.val(''); 
 			});
 
 			socket.on('new message', function(data) {
 				messages.push(data);
 
 				var tmpM = messages.reverse();
-				$.cookie('iochat-msg',JSON.stringify(messages.slice(0, 5)));
+				$.cookie('iochat-msg',JSON.stringify(messages.slice(0, 5)),{ expires: expDate});
 
 				chat.append('<div class="well"><strong>'+data.user+'</strong>: '+data.msg+'</div>');
+				chat.scrollTop(0);
 			});
 
 			userForm.submit(function(e) {
 				if(username.val()) {
 					e.preventDefault();
-					$.cookie('iochat',username.val());
-					socket.emit('new user', username.val(), function(data) {
+					$.cookie('iochat',$.trim(username.val()), { expires: expDate });
+					socket.emit('new user', $.trim(username.val()), function(data) {
 						if(data) {
 							userFormArea.hide();
 							messageFormArea.show();
